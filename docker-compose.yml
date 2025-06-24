@@ -1,0 +1,157 @@
+services:
+  # Discord Bot (TypeScript/Node.js)
+  bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    container_name: discord-ai-bot
+    environment:
+      - NODE_ENV=development
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
+      - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
+      - GRIPTAPE_SERVICE_URL=http://griptape-service:8000
+      - PIPECAT_SERVICE_URL=http://pipecat-service:8001
+      - POSTGRES_URL=postgresql://postgres:password@postgres:5432/discord_bot
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=debug
+      - HOT_RELOAD=true
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./bot:/app
+      - /app/node_modules
+    depends_on:
+      - postgres
+      - redis
+      - griptape-service
+      - pipecat-service
+    networks:
+      - discord-bot-network
+    restart: unless-stopped
+
+  # Griptape Service (Python)
+  griptape-service:
+    build:
+      context: ./services/griptape-service
+      dockerfile: Dockerfile
+    container_name: griptape-service
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - POSTGRES_URL=postgresql://postgres:password@postgres:5432/discord_bot
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=debug
+      - WEATHER_API_KEY=${WEATHER_API_KEY}
+      - WEB_SEARCH_API_KEY=${WEB_SEARCH_API_KEY}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./services/griptape-service:/app
+      - /app/__pycache__
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - discord-bot-network
+    restart: unless-stopped
+
+  # Pipecat Service (Python)
+  pipecat-service:
+    build:
+      context: ./services/pipecat-service
+      dockerfile: Dockerfile
+    container_name: pipecat-service
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - POSTGRES_URL=postgresql://postgres:password@postgres:5432/discord_bot
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=debug
+      - VOICE_ACTIVITY_DETECTION=true
+      - VOICE_INTERRUPTION_HANDLING=true
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./services/pipecat-service:/app
+      - /app/__pycache__
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - discord-bot-network
+    restart: unless-stopped
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: discord-bot-postgres
+    environment:
+      - POSTGRES_DB=discord_bot
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./shared/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - discord-bot-network
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: discord-bot-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - discord-bot-network
+    restart: unless-stopped
+
+  # Optional: pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: discord-bot-pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@discord-bot.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - discord-bot-network
+    profiles:
+      - tools
+
+  # Optional: Redis Commander for Redis management
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: discord-bot-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - discord-bot-network
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+  redis_data:
+  pgadmin_data:
+
+networks:
+  discord-bot-network:
+    driver: bridge 
