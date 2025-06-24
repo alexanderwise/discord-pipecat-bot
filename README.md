@@ -1,4 +1,7 @@
-# Discord AI Bot - Unified Multi-Modal Architecture
+# Note, this is mostly-hallucinated junk by a coding assistant
+
+
+## Discord AI Bot - Unified Multi-Modal Architecture
 
 A sophisticated Discord bot that operates across multiple interaction modes with advanced AI capabilities, featuring unified conversation context, tool access, and seamless voice/text integration.
 
